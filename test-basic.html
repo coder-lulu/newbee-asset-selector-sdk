@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Selector SDK - 基础功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+        }
+        .test-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1890ff;
+        }
+        .result {
+            background: #f6f8fa;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { border-left: 4px solid #52c41a; }
+        .error { border-left: 4px solid #ff4d4f; }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NewBee Asset Selector SDK - 基础功能测试</h1>
+        <p>测试已构建的SDK是否能正常加载和运行基础功能</p>
+        
+        <div class="test-section">
+            <div class="test-title">1. SDK加载测试</div>
+            <button onclick="testSDKLoad()">测试SDK加载</button>
+            <div id="test-load-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. 配置构建器测试</div>
+            <button onclick="testConfigBuilder()">测试配置构建器</button>
+            <div id="test-config-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. 工厂函数测试</div>
+            <button onclick="testFactory()">测试工厂函数</button>
+            <div id="test-factory-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. 配置管理器测试</div>
+            <button onclick="testConfigManager()">测试配置管理器</button>
+            <div id="test-manager-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">5. 微服务集成测试</div>
+            <button onclick="testIntegration()">测试微服务集成</button>
+            <div id="test-integration-result" class="result"></div>
+        </div>
+    </div>
+
+    <!-- 加载构建后的SDK -->
+    <script src="./dist/index.umd.js"></script>
+    <script>
+        function displayResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId)
+            element.className = `result ${success ? 'success' : 'error'}`
+            element.innerHTML = `
+                <div><strong>${success ? '✅ 成功' : '❌ 失败'}:</strong> ${message}</div>
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `
+        }
+
+        function testSDKLoad() {
+            try {
+                // 检查SDK是否加载
+                if (typeof AssetSelectorSDK === 'undefined') {
+                    throw new Error('AssetSelectorSDK 全局对象未定义')
+                }
+
+                // 检查主要导出
+                const exports = Object.keys(AssetSelectorSDK)
+                const requiredExports = [
+                    'AssetSelectorConfigBuilder',
+                    'ConfigManager', 
+                    'ConfigFactory',
+                    'createAssetSelector',
+                    'MicroserviceIntegration'
+                ]
+
+                const missingExports = requiredExports.filter(exp => !exports.includes(exp))
+                
+                if (missingExports.length > 0) {
+                    throw new Error(`缺少导出: ${missingExports.join(', ')}`)
+                }
+
+                displayResult('test-load-result', true, 'SDK成功加载', {
+                    availableExports: exports.length,
+                    exports: exports.slice(0, 10) // 显示前10个导出
+                })
+            } catch (error) {
+                displayResult('test-load-result', false, error.message)
+            }
+        }
+
+        function testConfigBuilder() {
+            try {
+                const { AssetSelectorConfigBuilder } = AssetSelectorSDK
+
+                // 测试构建器创建
+                const builder = AssetSelectorConfigBuilder.create()
+                
+                // 测试链式调用
+                const config = builder
+                    .displayMode('table')
+                    .pageSize(20)
+                    .enableSearch(true)
+                    .enableFilter(true)
+                    .displayFields(['name', 'ip', 'status'])
+                    .searchFields(['name', 'ip'])
+                    .theme('antd')
+                    .build()
+
+                // 验证配置
+                if (!config.id || config.displayMode !== 'table' || config.pageSize !== 20) {
+                    throw new Error('配置构建失败')
+                }
+
+                displayResult('test-config-result', true, '配置构建器正常工作', {
+                    configId: config.id,
+                    displayMode: config.displayMode,
+                    pageSize: config.pageSize,
+                    displayFields: config.displayFields
+                })
+            } catch (error) {
+                displayResult('test-config-result', false, error.message)
+            }
+        }
+
+        function testFactory() {
+            try {
+                const { createAssetSelector, ConfigPresets } = AssetSelectorSDK
+
+                // 测试基础工厂函数
+                const selector = createAssetSelector({
+                    config: {
+                        displayMode: 'card',
+                        pageSize: 10
+                    }
+                })
+
+                // 验证实例方法
+                const requiredMethods = ['show', 'hide', 'destroy', 'updateConfig', 'getSelectedAssets']
+                const missingMethods = requiredMethods.filter(method => typeof selector[method] !== 'function')
+
+                if (missingMethods.length > 0) {
+                    throw new Error(`缺少方法: ${missingMethods.join(', ')}`)
+                }
+
+                // 测试预设配置
+                const cmdbPreset = ConfigPresets.cmdb('https://api.example.com')
+                
+                displayResult('test-factory-result', true, '工厂函数正常工作', {
+                    selectorMethods: requiredMethods,
+                    cmdbPresetMode: cmdbPreset.serviceConfig?.mode,
+                    cmdbEndpoints: Object.keys(cmdbPreset.serviceConfig?.endpoints || {})
+                })
+            } catch (error) {
+                displayResult('test-factory-result', false, error.message)
+            }
+        }
+
+        function testConfigManager() {
+            try {
+                const { ConfigManager } = AssetSelectorSDK
+
+                // 测试全局配置设置
+                const globalConfig = {
+                    displayMode: 'table',
+                    pageSize: 25,
+                    theme: 'test-theme'
+                }
+                
+                ConfigManager.setGlobalConfig(globalConfig)
+                const retrieved = ConfigManager.getGlobalConfig()
+
+                // 验证配置是否正确设置
+                if (retrieved.displayMode !== 'table' || retrieved.pageSize !== 25) {
+                    throw new Error('全局配置设置失败')
+                }
+
+                // 测试配置合并
+                const merged = ConfigManager.mergeConfigs({
+                    enableSearch: true
+                })
+
+                displayResult('test-manager-result', true, '配置管理器正常工作', {
+                    globalConfig: retrieved,
+                    mergedKeys: Object.keys(merged),
+                    enableSearch: merged.enableSearch
+                })
+            } catch (error) {
+                displayResult('test-manager-result', false, error.message)
+            }
+        }
+
+        function testIntegration() {
+            try {
+                const { MicroserviceIntegration } = AssetSelectorSDK
+
+                // 测试CMDB集成配置
+                const cmdbConfig = MicroserviceIntegration.cmdb({
+                    serviceName: 'cmdb',
+                    gateway: 'https://api.newbee.com',
+                    tenantMode: true
+                })
+
+                // 验证集成配置
+                if (!cmdbConfig.serviceConfig || !cmdbConfig.config) {
+                    throw new Error('微服务集成配置生成失败')
+                }
+
+                if (cmdbConfig.serviceConfig.mode !== 'cmdb') {
+                    throw new Error('CMDB模式配置错误')
+                }
+
+                // 测试通用集成
+                const genericConfig = MicroserviceIntegration.generic({
+                    serviceName: 'test-service',
+                    gateway: 'https://api.test.com',
+                    endpoints: {
+                        getAssets: '/assets',
+                        getAssetTypes: '/types'
+                    }
+                })
+
+                displayResult('test-integration-result', true, '微服务集成正常工作', {
+                    cmdbMode: cmdbConfig.serviceConfig.mode,
+                    cmdbEndpoints: Object.keys(cmdbConfig.serviceConfig.endpoints || {}),
+                    genericMode: genericConfig.serviceConfig.mode,
+                    genericEndpoints: Object.keys(genericConfig.serviceConfig.endpoints || {})
+                })
+            } catch (error) {
+                displayResult('test-integration-result', false, error.message)
+            }
+        }
+
+        // 页面加载完成后自动测试SDK加载
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testSDKLoad()
+            }, 100)
+        })
+    </script>
+</body>
+</html>

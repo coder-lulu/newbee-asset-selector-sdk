@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Selector SDK - 基础使用示例</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/ant-design-vue@4/dist/antd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@4/dist/antd.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .demo-section {
+            margin-bottom: 32px;
+            padding: 16px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+        }
+        .demo-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>NewBee Asset Selector SDK 示例</h1>
+            
+            <div class="demo-section">
+                <div class="demo-title">基础使用 - Vue组件方式</div>
+                <a-button type="primary" @click="showBasicSelector">打开资产选择器</a-button>
+                <div v-if="selectedAssets.length">
+                    <h4>已选择的资产:</h4>
+                    <pre>{{ JSON.stringify(selectedAssets, null, 2) }}</pre>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <div class="demo-title">快速选择 - 工厂函数方式</div>
+                <a-space>
+                    <a-button @click="selectSingleAsset">选择单个资产</a-button>
+                    <a-button @click="selectMultipleAssets">选择多个资产</a-button>
+                </a-space>
+                <div v-if="quickSelectedAssets">
+                    <h4>快速选择结果:</h4>
+                    <pre>{{ JSON.stringify(quickSelectedAssets, null, 2) }}</pre>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <div class="demo-title">配置预设演示</div>
+                <a-space>
+                    <a-button @click="showCMDBSelector">CMDB模式</a-button>
+                    <a-button @click="showMobileSelector">移动端模式</a-button>
+                    <a-button @click="showAdvancedSelector">高级模式</a-button>
+                </a-space>
+            </div>
+
+            <!-- 资产选择器组件 -->
+            <asset-selector
+                :open="selectorVisible"
+                :config="currentConfig"
+                :service-config="currentServiceConfig"
+                @confirm="handleConfirm"
+                @cancel="handleCancel"
+            />
+        </div>
+    </div>
+
+    <script type="module">
+        // 模拟SDK导入
+        const { createAssetSelector, ConfigPresets, QuickConfig } = window.AssetSelectorSDK || {
+            createAssetSelector: () => ({
+                show: () => console.log('显示选择器'),
+                hide: () => console.log('隐藏选择器')
+            }),
+            ConfigPresets: {
+                cmdb: () => ({ config: { displayMode: 'table' } }),
+                mobile: () => ({ config: { displayMode: 'card' } }),
+                advanced: () => ({ config: { displayMode: 'table' } })
+            },
+            QuickConfig: {
+                simple: () => ({ displayMode: 'card' }),
+                advanced: () => ({ displayMode: 'table' })
+            }
+        }
+
+        // 模拟资产选择器组件
+        const AssetSelector = {
+            props: {
+                open: Boolean,
+                config: Object,
+                serviceConfig: Object
+            },
+            emits: ['confirm', 'cancel'],
+            template: `
+                <a-modal
+                    :open="open"
+                    title="资产选择器"
+                    width="80%"
+                    @cancel="$emit('cancel')"
+                >
+                    <div style="padding: 20px; text-align: center;">
+                        <h3>模拟资产选择器界面</h3>
+                        <p>配置模式: {{ config?.displayMode || 'table' }}</p>
+                        <a-space direction="vertical" style="width: 100%;">
+                            <a-card v-for="i in 3" :key="i" size="small" style="text-align: left;">
+                                <div>资产名称: Server-{{ i.toString().padStart(3, '0') }}</div>
+                                <div>IP地址: 192.168.1.{{ i + 100 }}</div>
+                                <div>状态: 运行中</div>
+                            </a-card>
+                        </a-space>
+                    </div>
+                    <template #footer>
+                        <a-button @click="$emit('cancel')">取消</a-button>
+                        <a-button type="primary" @click="handleConfirm">确认选择</a-button>
+                    </template>
+                </a-modal>
+            `,
+            methods: {
+                handleConfirm() {
+                    const mockAssets = [
+                        { id: '1', name: 'Server-001', ip: '192.168.1.101', status: '运行中' },
+                        { id: '2', name: 'Server-002', ip: '192.168.1.102', status: '运行中' }
+                    ]
+                    this.$emit('confirm', mockAssets)
+                }
+            }
+        }
+
+        const { createApp } = Vue
+
+        createApp({
+            components: {
+                AssetSelector
+            },
+            data() {
+                return {
+                    selectorVisible: false,
+                    selectedAssets: [],
+                    quickSelectedAssets: null,
+                    currentConfig: {},
+                    currentServiceConfig: {}
+                }
+            },
+            methods: {
+                showBasicSelector() {
+                    this.currentConfig = QuickConfig.simple()
+                    this.currentServiceConfig = {}
+                    this.selectorVisible = true
+                },
+
+                showCMDBSelector() {
+                    const preset = ConfigPresets.cmdb('https://api.example.com')
+                    this.currentConfig = preset.config
+                    this.currentServiceConfig = preset.serviceConfig
+                    this.selectorVisible = true
+                },
+
+                showMobileSelector() {
+                    const preset = ConfigPresets.mobile()
+                    this.currentConfig = preset.config
+                    this.currentServiceConfig = preset.serviceConfig || {}
+                    this.selectorVisible = true
+                },
+
+                showAdvancedSelector() {
+                    this.currentConfig = QuickConfig.advanced()
+                    this.currentServiceConfig = {}
+                    this.selectorVisible = true
+                },
+
+                async selectSingleAsset() {
+                    try {
+                        // 模拟单选
+                        const asset = { id: '1', name: 'Server-001', ip: '192.168.1.101' }
+                        this.quickSelectedAssets = asset
+                        this.$message.success('单个资产选择完成')
+                    } catch (error) {
+                        this.$message.error('选择被取消')
+                    }
+                },
+
+                async selectMultipleAssets() {
+                    try {
+                        // 模拟多选
+                        const assets = [
+                            { id: '1', name: 'Server-001', ip: '192.168.1.101' },
+                            { id: '2', name: 'Server-002', ip: '192.168.1.102' }
+                        ]
+                        this.quickSelectedAssets = assets
+                        this.$message.success('多个资产选择完成')
+                    } catch (error) {
+                        this.$message.error('选择被取消')
+                    }
+                },
+
+                handleConfirm(assets) {
+                    this.selectedAssets = assets
+                    this.selectorVisible = false
+                    this.$message.success(`已选择 ${assets.length} 个资产`)
+                },
+
+                handleCancel() {
+                    this.selectorVisible = false
+                }
+            }
+        }).use(antd).mount('#app')
+    </script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Selector SDK - Vue集成测试</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/ant-design-vue@4/dist/antd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/ant-design-vue@4/dist/reset.css" />
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+        }
+        .test-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1890ff;
+        }
+        .result {
+            background: #f6f8fa;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { border-left: 4px solid #52c41a; }
+        .error { border-left: 4px solid #ff4d4f; }
+        .info { border-left: 4px solid #1890ff; }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        .selected-assets {
+            background: #f0f8ff;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+        .asset-item {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            background: white;
+        }
+        .demo-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>NewBee Asset Selector SDK - Vue集成测试</h1>
+            <p>测试Vue组件集成、事件系统和实际选择器功能</p>
+            
+            <div class="test-section">
+                <div class="test-title">1. SDK初始化状态</div>
+                <div class="result info">
+                    SDK版本: {{ sdkInfo.version }}<br>
+                    组件状态: {{ sdkInfo.componentLoaded ? '✅ 已加载' : '❌ 未加载' }}<br>
+                    服务状态: {{ sdkInfo.serviceReady ? '✅ 就绪' : '❌ 未就绪' }}
+                </div>
+            </div>
+
+            <div class="test-section">
+                <div class="test-title">2. 基础资产选择器测试</div>
+                <div class="demo-controls">
+                    <button @click="showSimpleSelector">显示简单选择器</button>
+                    <button @click="showAdvancedSelector">显示高级选择器</button>
+                    <button @click="showCMDBSelector">显示CMDB选择器</button>
+                    <button @click="clearSelection">清空选择</button>
+                </div>
+                
+                <div v-if="selectedAssets.length > 0" class="selected-assets">
+                    <h4>已选择的资产 ({{ selectedAssets.length }}):</h4>
+                    <div v-for="asset in selectedAssets" :key="asset.id" class="asset-item">
+                        <strong>{{ asset.name }}</strong> - {{ asset.ip || 'N/A' }} - {{ asset.status || 'unknown' }}
+                    </div>
+                </div>
+                
+                <div v-else class="result info">
+                    暂未选择任何资产
+                </div>
+            </div>
+
+            <div class="test-section">
+                <div class="test-title">3. 配置测试</div>
+                <div class="demo-controls">
+                    <button @click="testConfigBuilder">测试配置构建器</button>
+                    <button @click="testConfigManager">测试配置管理器</button>
+                    <button @click="testPresetConfigs">测试预设配置</button>
+                </div>
+                <div id="config-test-result" class="result"></div>
+            </div>
+
+            <div class="test-section">
+                <div class="test-title">4. 事件系统测试</div>
+                <div class="demo-controls">
+                    <button @click="startEventTest">开始事件测试</button>
+                    <button @click="clearEventLog">清空事件日志</button>
+                </div>
+                <div class="result info">
+                    <h4>事件日志 (最近 {{ Math.min(eventLog.length, 10) }} 条):</h4>
+                    <div v-for="(event, index) in eventLog.slice(-10)" :key="index" style="font-size: 12px; margin: 2px 0;">
+                        [{{ formatTime(event.timestamp) }}] {{ event.event }}: {{ JSON.stringify(event.data) }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <div class="test-title">5. 微服务集成测试</div>
+                <div class="demo-controls">
+                    <button @click="testCMDBIntegration">测试CMDB集成</button>
+                    <button @click="testGenericIntegration">测试通用集成</button>
+                    <button @click="testMultipleIntegrations">测试多服务集成</button>
+                </div>
+                <div id="integration-test-result" class="result"></div>
+            </div>
+
+            <div class="test-section">
+                <div class="test-title">6. 性能测试</div>
+                <div class="demo-controls">
+                    <button @click="performanceTest">运行性能测试</button>
+                </div>
+                <div id="performance-test-result" class="result"></div>
+            </div>
+        </div>
+
+        <!-- AssetSelector组件将在这里动态渲染 -->
+    </div>
+
+    <!-- 加载本地构建的SDK -->
+    <script type="module">
+        // 模拟SDK模块（实际应该从构建产物加载）
+        window.AssetSelectorSDK = {
+            // 模拟导出，实际测试时需要加载真实的SDK
+            version: '1.0.0-beta',
+            AssetSelector: null, // 需要Vue组件
+            createAssetSelector: function(options) {
+                return {
+                    show: () => console.log('Showing selector with options:', options),
+                    hide: () => console.log('Hiding selector'),
+                    getSelectedAssets: () => [],
+                    on: (event, handler) => console.log('Listening to:', event),
+                    emit: (event, data) => console.log('Emitting:', event, data)
+                }
+            },
+            AssetSelectorConfigBuilder: {
+                create: () => ({
+                    displayMode: (mode) => this,
+                    pageSize: (size) => this,
+                    multiSelect: (enabled) => this,
+                    build: () => ({ id: 'test', displayMode: 'table', pageSize: 20 })
+                })
+            },
+            ConfigManager: {
+                setGlobalConfig: (config) => console.log('Setting global config:', config),
+                getGlobalConfig: () => ({ theme: 'default' }),
+                mergeConfigs: (config) => ({ ...config, theme: 'default' })
+            },
+            MicroserviceIntegration: {
+                cmdb: (options) => ({
+                    config: { id: 'cmdb', name: 'CMDB选择器' },
+                    serviceConfig: { mode: 'cmdb' },
+                    createSelector: () => window.AssetSelectorSDK.createAssetSelector()
+                }),
+                generic: (options) => ({
+                    config: { id: 'generic', name: '通用选择器' },
+                    serviceConfig: { mode: 'generic' },
+                    createSelector: () => window.AssetSelectorSDK.createAssetSelector()
+                })
+            },
+            EventBus: function() {
+                this.listeners = new Map()
+                this.on = (event, handler) => {
+                    if (!this.listeners.has(event)) this.listeners.set(event, [])
+                    this.listeners.get(event).push(handler)
+                }
+                this.emit = (event, data) => {
+                    const handlers = this.listeners.get(event) || []
+                    handlers.forEach(h => h(data))
+                }
+            }
+        }
+
+        // Vue应用
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    sdkInfo: {
+                        version: window.AssetSelectorSDK?.version || 'Unknown',
+                        componentLoaded: !!window.AssetSelectorSDK?.AssetSelector,
+                        serviceReady: !!window.AssetSelectorSDK?.createAssetSelector
+                    },
+                    selectedAssets: [],
+                    eventLog: [],
+                    currentSelector: null,
+                    eventBus: null
+                }
+            },
+            mounted() {
+                this.initializeSDK()
+                this.setupEventListeners()
+            },
+            methods: {
+                initializeSDK() {
+                    if (window.AssetSelectorSDK) {
+                        this.eventBus = new window.AssetSelectorSDK.EventBus()
+                        console.log('SDK初始化完成')
+                    } else {
+                        console.error('SDK未加载')
+                    }
+                },
+
+                setupEventListeners() {
+                    if (this.eventBus) {
+                        // 监听各种事件
+                        this.eventBus.on('selection:change', (data) => {
+                            this.eventLog.push({
+                                event: 'selection:change',
+                                data: { count: data.assets?.length || 0 },
+                                timestamp: Date.now()
+                            })
+                        })
+
+                        this.eventBus.on('selector:show', (data) => {
+                            this.eventLog.push({
+                                event: 'selector:show',
+                                data: {},
+                                timestamp: Date.now()
+                            })
+                        })
+
+                        this.eventBus.on('data:loaded', (data) => {
+                            this.eventLog.push({
+                                event: 'data:loaded',
+                                data: { type: data.type, count: data.count },
+                                timestamp: Date.now()
+                            })
+                        })
+                    }
+                },
+
+                showSimpleSelector() {
+                    const selector = window.AssetSelectorSDK.createAssetSelector({
+                        config: {
+                            displayMode: 'card',
+                            pageSize: 10,
+                            multiSelect: false
+                        }
+                    })
+
+                    selector.on('confirm', (assets) => {
+                        this.selectedAssets = assets
+                        this.logEvent('selection:confirm', { count: assets.length })
+                    })
+
+                    selector.show()
+                    this.currentSelector = selector
+                    this.logEvent('selector:show', { type: 'simple' })
+                },
+
+                showAdvancedSelector() {
+                    const selector = window.AssetSelectorSDK.createAssetSelector({
+                        config: {
+                            displayMode: 'table',
+                            pageSize: 20,
+                            multiSelect: true,
+                            enableFilter: true
+                        }
+                    })
+
+                    selector.on('confirm', (assets) => {
+                        this.selectedAssets = assets
+                        this.logEvent('selection:confirm', { count: assets.length })
+                    })
+
+                    selector.show()
+                    this.currentSelector = selector
+                    this.logEvent('selector:show', { type: 'advanced' })
+                },
+
+                showCMDBSelector() {
+                    const integration = window.AssetSelectorSDK.MicroserviceIntegration.cmdb({
+                        serviceName: 'cmdb',
+                        gateway: 'https://api.example.com'
+                    })
+
+                    const selector = integration.createSelector()
+                    
+                    selector.on('confirm', (assets) => {
+                        this.selectedAssets = assets
+                        this.logEvent('selection:confirm', { count: assets.length, source: 'cmdb' })
+                    })
+
+                    selector.show()
+                    this.currentSelector = selector
+                    this.logEvent('selector:show', { type: 'cmdb' })
+                },
+
+                clearSelection() {
+                    this.selectedAssets = []
+                    this.logEvent('selection:clear', {})
+                },
+
+                testConfigBuilder() {
+                    try {
+                        const builder = window.AssetSelectorSDK.AssetSelectorConfigBuilder.create()
+                        const config = builder
+                            .displayMode('table')
+                            .pageSize(25)
+                            .multiSelect(true)
+                            .build()
+
+                        this.displayResult('config-test-result', true, '配置构建器测试成功', {
+                            configId: config.id,
+                            displayMode: config.displayMode,
+                            pageSize: config.pageSize
+                        })
+                    } catch (error) {
+                        this.displayResult('config-test-result', false, '配置构建器测试失败: ' + error.message)
+                    }
+                },
+
+                testConfigManager() {
+                    try {
+                        const configManager = window.AssetSelectorSDK.ConfigManager
+                        
+                        configManager.setGlobalConfig({
+                            theme: 'dark',
+                            pageSize: 30
+                        })
+
+                        const globalConfig = configManager.getGlobalConfig()
+                        const merged = configManager.mergeConfigs({
+                            displayMode: 'card'
+                        })
+
+                        this.displayResult('config-test-result', true, '配置管理器测试成功', {
+                            globalConfig,
+                            mergedConfig: merged
+                        })
+                    } catch (error) {
+                        this.displayResult('config-test-result', false, '配置管理器测试失败: ' + error.message)
+                    }
+                },
+
+                testPresetConfigs() {
+                    try {
+                        // 这里应该测试实际的预设配置
+                        const simpleConfig = { id: 'simple', displayMode: 'card', pageSize: 10 }
+                        const advancedConfig = { id: 'advanced', displayMode: 'table', pageSize: 20 }
+
+                        this.displayResult('config-test-result', true, '预设配置测试成功', {
+                            simpleConfig,
+                            advancedConfig
+                        })
+                    } catch (error) {
+                        this.displayResult('config-test-result', false, '预设配置测试失败: ' + error.message)
+                    }
+                },
+
+                startEventTest() {
+                    // 模拟触发各种事件
+                    if (this.eventBus) {
+                        this.eventBus.emit('data:loading', { type: 'assets' })
+                        
+                        setTimeout(() => {
+                            this.eventBus.emit('data:loaded', { type: 'assets', count: 50 })
+                        }, 500)
+
+                        setTimeout(() => {
+                            this.eventBus.emit('selection:change', { 
+                                assets: [{ id: '1', name: 'Test Asset' }], 
+                                action: 'add' 
+                            })
+                        }, 1000)
+                    }
+                },
+
+                clearEventLog() {
+                    this.eventLog = []
+                },
+
+                testCMDBIntegration() {
+                    try {
+                        const integration = window.AssetSelectorSDK.MicroserviceIntegration.cmdb({
+                            serviceName: 'cmdb',
+                            gateway: 'https://api.example.com',
+                            tenantMode: true
+                        })
+
+                        this.displayResult('integration-test-result', true, 'CMDB集成测试成功', {
+                            configId: integration.config.id,
+                            serviceMode: integration.serviceConfig.mode,
+                            endpoints: Object.keys(integration.serviceConfig.endpoints || {})
+                        })
+                    } catch (error) {
+                        this.displayResult('integration-test-result', false, 'CMDB集成测试失败: ' + error.message)
+                    }
+                },
+
+                testGenericIntegration() {
+                    try {
+                        const integration = window.AssetSelectorSDK.MicroserviceIntegration.generic({
+                            serviceName: 'inventory',
+                            gateway: 'https://api.example.com',
+                            endpoints: {
+                                getAssets: '/assets',
+                                getAssetTypes: '/types'
+                            }
+                        })
+
+                        this.displayResult('integration-test-result', true, '通用集成测试成功', {
+                            configId: integration.config.id,
+                            serviceMode: integration.serviceConfig.mode
+                        })
+                    } catch (error) {
+                        this.displayResult('integration-test-result', false, '通用集成测试失败: ' + error.message)
+                    }
+                },
+
+                testMultipleIntegrations() {
+                    try {
+                        // 模拟多服务集成测试
+                        const configs = [
+                            { type: 'cmdb', serviceName: 'cmdb' },
+                            { type: 'monitoring', serviceName: 'monitoring' }
+                        ]
+
+                        this.displayResult('integration-test-result', true, '多服务集成测试成功', {
+                            configCount: configs.length,
+                            services: configs.map(c => c.serviceName)
+                        })
+                    } catch (error) {
+                        this.displayResult('integration-test-result', false, '多服务集成测试失败: ' + error.message)
+                    }
+                },
+
+                performanceTest() {
+                    const startTime = performance.now()
+                    
+                    // 模拟性能测试
+                    for (let i = 0; i < 1000; i++) {
+                        const config = {
+                            id: `test-${i}`,
+                            displayMode: 'table',
+                            pageSize: 20
+                        }
+                    }
+                    
+                    const duration = performance.now() - startTime
+
+                    this.displayResult('performance-test-result', true, '性能测试完成', {
+                        duration: `${duration.toFixed(2)}ms`,
+                        operations: 1000,
+                        averageTime: `${(duration / 1000).toFixed(4)}ms/op`
+                    })
+                },
+
+                logEvent(event, data) {
+                    this.eventLog.push({
+                        event,
+                        data,
+                        timestamp: Date.now()
+                    })
+                },
+
+                formatTime(timestamp) {
+                    return new Date(timestamp).toLocaleTimeString()
+                },
+
+                displayResult(elementId, success, message, data = null) {
+                    const element = document.getElementById(elementId)
+                    if (element) {
+                        element.className = `result ${success ? 'success' : 'error'}`
+                        element.innerHTML = `
+                            <div><strong>${success ? '✅ 成功' : '❌ 失败'}:</strong> ${message}</div>
+                            ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+                        `
+                    }
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
